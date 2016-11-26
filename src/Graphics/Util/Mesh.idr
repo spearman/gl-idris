@@ -1,5 +1,6 @@
 module Graphics.Util.Mesh
 
+import Control.Algebra
 import Data.Vect 
 
 %access public export
@@ -9,6 +10,16 @@ Vec2 = Vect 2 Double
 
 Vec3 : Type
 Vec3 = Vect 3 Double
+
+Semigroup Vec3 where
+  (<+>) (x1 :: y1 :: z1 :: Nil) (x2 :: y2 :: z2 :: Nil) =
+    (x1 + x2) :: (y1 + y2) :: (z1 + z2) :: Nil
+
+Monoid Vec3 where
+  neutral = 0 :: 0 :: 0 :: Nil
+
+Group Vec3 where
+  inverse (x :: y :: z :: Nil) = (-x) :: (-y) :: (-z) :: Nil
 
 Vec4 : Type
 Vec4 = Vect 4 Double

@@ -51,7 +51,7 @@ record Texture where
   
 
 ||| locations of a shading program
-export
+public export
 record Shader where
   constructor MkShader
   ||| location of the shader program
@@ -170,7 +170,7 @@ deleteModel (TexturedModel vao vbos _ _) = do
 ||| an entity is like an instance of a model. it consists of the model an instance
 ||| specific data like location, rotation, etc.
 ||| 
-export
+public export
 data Entity : Type -> Type where
   ||| a simple entity: model, shader, texture and instance data
   ||| @ model the model ('class') of the entity

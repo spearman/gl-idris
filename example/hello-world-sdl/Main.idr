@@ -4,6 +4,9 @@ import Graphics.SDL2.SDL
 
 import Control.Algebra
 import Data.Matrix
+import Data.Matrix.Algebraic
+
+import System
 
 import Graphics.Util.Transforms
 import Graphics.Util.ObjLoader
@@ -101,59 +104,80 @@ display = MkDisplay 800 600
 
 main : IO ()
 main = do 
-          initSDL
-          glSetAttribute SDL_GL_CONTEXT_PROFILE_MASK (toSDLInt SDL_GL_CONTEXT_PROFILE_CORE)
-          glSetAttribute SDL_GL_CONTEXT_MAJOR_VERSION 4
-          glSetAttribute SDL_GL_CONTEXT_MINOR_VERSION 1
-          glSetAttribute SDL_GL_ACCELERATED_VISUAL 1
-          glSetAttribute SDL_GL_DOUBLEBUFFER  1
-          glSetAttribute SDL_GL_DEPTH_SIZE 16
+          putStrLn "initializing SDL..."
+          init <- initSDL
+          if init /= 0 then do
+            putStrLn "...SDL initialization failed"
+            exit 1
+          else do
+            putStrLn "...SDL initialized"
+            putStrLn "setting GL attributes..."
 
-          (win,renderer) <- startSDL "Hello Idris" 800 600
-          ctx <- createGLContext win
-          glMakeCurrent win ctx
-          
-          glSetSwapInterval 1
-          
-          glewInit
-          info <- glGetInfo
-          putStrLn info
-          glEnable GL_DEPTH_TEST
-          glDepthFunc GL_LESS
-          
-          texture <- loadTexture "stone.png" 0          
-          plane <- loadObj "stone.obj"
-          planeModel <- createModel plane [texture]
-          
-          shader <- createShaders [(GL_VERTEX_SHADER, "shader.vert"), (GL_FRAGMENT_SHADER, "shader.frag")]
-          traverse printShaderLog  (shaders shader)
-          glUseProgram $ program shader
-          
-          locView <- glGetUniformLocation (program shader) "viewMatrix"
-          glUniformMatrix4fv locView 1 0 (toList $ toGl $ viewMatrix [0,0,-1] [0,0,0] [0,1,0])
+            glSetAttribute SDL_GL_CONTEXT_PROFILE_MASK (toSDLInt SDL_GL_CONTEXT_PROFILE_CORE)
+            --glSetAttribute SDL_GL_CONTEXT_MAJOR_VERSION 4
+            --glSetAttribute SDL_GL_CONTEXT_MINOR_VERSION 1
+            glSetAttribute SDL_GL_ACCELERATED_VISUAL 1
+            glSetAttribute SDL_GL_DOUBLEBUFFER  1
+            glSetAttribute SDL_GL_DEPTH_SIZE 16
 
-          locProj <- glGetUniformLocation (program shader) "projectionMatrix"
-          let projM = perspectiveProjection (fov camera) (aspectRatio display) ((nearPlane camera), (farPlane camera))
-          glUniformMatrix4fv locProj 1 0 (toList $ toGl projM)
+            putStrLn "starting SDL..."
+            (win,renderer) <- startSDL "Hello Idris" 800 600
+            putStrLn "...SDL started"
+            ctx <- createGLContext win
+            glMakeCurrent win ctx
+            
+            glSetSwapInterval 1
+            
+            glewInit
+            putStrLn "GLEW initialized..."
 
-          loc <- glGetUniformLocation (program shader) "transformMatrix"          
+            info <- glGetInfo
+            putStrLn info
+            glEnable GL_DEPTH_TEST
+            glDepthFunc GL_LESS
+            
+            texture <- loadTexture "stone.png" 0          
+            (Right plane) <- loadObj "stone.obj" | (Left err) => do
+              putStr "loadObj file error: "
+              putStrLn $ show err
+            planeModel <- createModel plane [texture]
+            
 
-          let entity = SimpleEntity planeModel shader [0,-0.5,-3] [(Degree 0),(Degree 0),(Degree 0)] loc "Test"
-          
-          let initialState = MkState renderer win display camera (Locs locView) [entity]
-          eventLoop initialState
-          deleteModel planeModel
-          deleteShaders shader
-          deleteTextures [texture]
-          --deleteGLContext ctx
-          endSDL win renderer
-          pure ()
+            (Right shader_vert_src) <- readFile "shader.vert" | (Left err) => do
+              putStr "error reading vert shader file:"
+              putStrLn $ show err
+            (Right shader_frag_src) <- readFile "shader.frag" | (Left err) => do
+              putStr "error reading frag shader file:"
+              putStrLn $ show err
+            shader <- createShaders [(GL_VERTEX_SHADER, shader_vert_src), (GL_FRAGMENT_SHADER, shader_frag_src)]
+            traverse printShaderLog  (shaders shader)
+            glUseProgram $ program shader
+            
+            locView <- glGetUniformLocation (program shader) "viewMatrix"
+            glUniformMatrix4fv locView 1 0 (toList $ toGl $ viewMatrix [0,0,-1] [0,0,0] [0,1,0])
+
+            locProj <- glGetUniformLocation (program shader) "projectionMatrix"
+            let projM = perspectiveProjection (fov camera) (aspectRatio display) ((nearPlane camera), (farPlane camera))
+            glUniformMatrix4fv locProj 1 0 (toList $ toGl projM)
+
+            loc <- glGetUniformLocation (program shader) "transformMatrix"          
+
+            let entity = SimpleEntity planeModel shader [0,-0.5,-3] [(Degree 0),(Degree 0),(Degree 0)] loc "Test"
+            
+            let initialState = MkState renderer win display camera (Locs locView) [entity]
+            eventLoop initialState
+            deleteModel planeModel
+            deleteShaders shader
+            deleteTextures [texture]
+            --deleteGLContext ctx
+            endSDL win renderer
+            pure ()
        where 
          eventLoop : State -> IO ()
          eventLoop state = do
                          e <- pollEvent
                          case e of
-                           Just AppQuit => return ()
+                           Just AppQuit => pure ()
                            Just event   => do 
                              draw state
                              --handle r event
